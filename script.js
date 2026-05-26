@@ -196,12 +196,71 @@ function setUsuarioAtual(user) { storageSet('nexum_usuario_atual', user); }
 function getAlugueis() { return storageGet('nexum_alugueis') || []; }
 function setAlugueis(list) { storageSet('nexum_alugueis', list); }
 
+function getEquipamentosEmpresa() { return storageGet('nexum_equipamentos_empresa') || []; }
+function setEquipamentosEmpresa(list) { storageSet('nexum_equipamentos_empresa', list); }
+
+function getEquipamentos() {
+  return [
+    ...EQUIPAMENTOS.map(eq => ({ ...eq, origem: 'catalogo', ownerEmail: null })),
+    ...getEquipamentosEmpresa().map(normalizeEquipamentoEmpresa)
+  ];
+}
+
+function normalizeEquipamentoEmpresa(eq) {
+  return {
+    id: eq.id,
+    nome: eq.nome || 'Equipamento sem nome',
+    categoria: eq.categoria || 'outros',
+    desc: eq.desc || '',
+    preco: Number(eq.preco) || 0,
+    status: eq.status || 'disponivel',
+    src: eq.src || 'images/escavadeira_hidraulica.jpeg',
+    specs: eq.specs && typeof eq.specs === 'object' ? eq.specs : {},
+    tags: Array.isArray(eq.tags) ? eq.tags : [],
+    destaque: Boolean(eq.destaque),
+    contato: eq.contato || {},
+    ownerEmail: eq.ownerEmail || null,
+    ownerName: eq.ownerName || '',
+    origem: 'empresa',
+    criadoEm: eq.criadoEm,
+    atualizadoEm: eq.atualizadoEm
+  };
+}
+
+function findEquipamentoById(id) {
+  return getEquipamentos().find(eq => String(eq.id) === String(id));
+}
+
+function userCanEditEquipamento(eq, user = getUsuarioAtual()) {
+  return Boolean(user && user.tipo === 'empresa' && eq?.ownerEmail === user.email);
+}
+
 function formatBRL(val) {
   return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
 function formatDate(iso) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [year, month, day] = iso.split('-');
+    return `${day}/${month}/${year}`;
+  }
+
   return new Date(iso).toLocaleDateString('pt-BR');
+}
+
+function toISODateInput(value) {
+  if (!value) return '';
+  return new Date(value).toISOString().split('T')[0];
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }[char]));
 }
 
 function formatarTelefone(num) {
@@ -321,32 +380,6 @@ function initReveal() {
 
 /* ─── CARD DE EQUIPAMENTO ─── */
 
-function criarCardEquipamento(eq, delay = 0) {
-  const disponivel = eq.status === 'disponivel';
-  const card = document.createElement('div');
-  card.className = 'equip-card';
-  card.style.animationDelay = `${delay}ms`;
-  card.innerHTML = `
-    <div class="equip-card-img"><img src=${eq.src}></div>
-    <div class="equip-card-body">
-      <span class="equip-card-category">${eq.categoria}</span>
-      <h3 class="equip-card-name">${eq.nome}</h3>
-      <p class="equip-card-desc">${eq.desc.substring(0, 90)}...</p>
-      <div class="equip-card-footer">
-        <div class="equip-card-price">
-          ${formatBRL(eq.preco)} <small>/ dia</small>
-        </div>
-        <span class="status-badge ${disponivel ? 'status-available' : 'status-unavailable'}">
-          ${disponivel ? 'Disponível' : 'Indisponível'}
-        </span>
-      </div>
-      <a href="detalhes.html?id=${eq.id}" class="btn btn-outline btn-sm" style="margin-top:14px; width:100%; justify-content:center;">
-        Ver Detalhes →
-      </a>
-    </div>
-  `;
-  return card;
-}
 
 /* ═══════════════════════════════════════════
    HOME — index.html
@@ -356,7 +389,7 @@ function initHome() {
   const grid = $('#destaque-grid');
   if (!grid) return;
 
-  const destaques = EQUIPAMENTOS.filter(e => e.destaque).slice(0, 4);
+  const destaques = getEquipamentos().filter(e => e.destaque).slice(0, 4);
   destaques.forEach((eq, i) => {
     grid.appendChild(criarCardEquipamento(eq, i * 80));
   });
@@ -412,7 +445,7 @@ function renderEquipamentos() {
   const grid = $('#equip-grid');
   if (!grid) return;
 
-  let lista = EQUIPAMENTOS;
+  let lista = getEquipamentos();
 
   if (filtroAtual !== 'todos') {
     lista = lista.filter(e => e.categoria === filtroAtual);
@@ -453,8 +486,8 @@ function initDetalhes() {
   if (!container) return;
 
   const params = new URLSearchParams(window.location.search);
-  const id = parseInt(params.get('id'), 10);
-  const eq = EQUIPAMENTOS.find(e => e.id === id);
+  const id = params.get('id');
+  const eq = findEquipamentoById(id);
 
   if (!eq) {
     container.innerHTML = `
@@ -470,6 +503,7 @@ function initDetalhes() {
   document.title = `${eq.nome} — Nexum`;
 
   const disponivel = eq.status === 'disponivel';
+  const detalheSafeId = String(eq.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
   container.innerHTML = `
     <div class="breadcrumb">
@@ -510,7 +544,7 @@ function initDetalhes() {
 
         <div class="detail-actions">
           ${disponivel
-            ? `<button onclick="solicitarAluguel(${eq.id})" class="btn btn-primary btn-lg">
+            ? `<button onclick="solicitarAluguel('${detalheSafeId}')" class="btn btn-primary btn-lg">
                  🔑 Solicitar Aluguel
                </button>`
             : `<button class="btn btn-ghost btn-lg" disabled style="opacity:.5;cursor:not-allowed">
@@ -576,8 +610,9 @@ function solicitarAluguel(id) {
 }
 
 function openModalAluguel(id) {
-  const eq = EQUIPAMENTOS.find(e => e.id === id);
+  const eq = findEquipamentoById(id);
   if (!eq) return;
+  const safeId = String(eq.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -609,7 +644,7 @@ function openModalAluguel(id) {
         color:var(--gray-200);
         display:none;
       "></div>
-      <button onclick="confirmarAluguel(${id})" class="btn btn-primary btn-full btn-lg">
+      <button onclick="confirmarAluguel('${safeId}')" class="btn btn-primary btn-full btn-lg">
         Confirmar Solicitação
       </button>
     </div>
@@ -669,7 +704,7 @@ function confirmarAluguel(id) {
 
   const aluguel = {
     id: Date.now(),
-    equipamentoId: id,
+    equipamentoId: eq.id,
     equipamentoNome: eq.nome,
     equipamentoImagem: eq.src,
     userEmail: user.email,
@@ -693,6 +728,180 @@ function confirmarAluguel(id) {
 /* ═══════════════════════════════════════════
    LOGIN — login.html
    ═══════════════════════════════════════════ */
+
+function openModalEditarAluguel(aluguelId) {
+  const aluguel = getAlugueis().find(a => String(a.id) === String(aluguelId));
+  if (!aluguel) {
+    showToast('Aluguel nao encontrado.', 'error');
+    return;
+  }
+
+  const eq = findEquipamentoById(aluguel.equipamentoId);
+  const precoDia = eq?.preco || Math.round(aluguel.total / Math.max(aluguel.dias, 1));
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal" style="position:relative">
+      <div class="modal-header">
+        <div>
+          <p class="modal-title">Editar Aluguel</p>
+          <p class="modal-sub">${escapeHtml(aluguel.equipamentoNome)} - ${formatBRL(precoDia)}/dia</p>
+        </div>
+        <button class="modal-close" type="button" aria-label="Fechar" onclick="this.closest('.modal-overlay').remove()">x</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Data de Inicio</label>
+        <input type="date" id="edit-aluguel-inicio" class="form-input" value="${toISODateInput(aluguel.inicio)}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data de Fim</label>
+        <input type="date" id="edit-aluguel-fim" class="form-input" value="${toISODateInput(aluguel.fim)}">
+      </div>
+      <div id="edit-aluguel-total" class="modal-total"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost btn-full" onclick="this.closest('.modal-overlay').remove()">Cancelar</button>
+        <button type="button" class="btn btn-primary btn-full" onclick="salvarEdicaoAluguel(${aluguel.id})">Salvar Alteracoes</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('open'), 10);
+
+  const updateTotal = () => atualizarTotalEdicaoAluguel(precoDia);
+  ['edit-aluguel-inicio', 'edit-aluguel-fim'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', updateTotal);
+  });
+  updateTotal();
+
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
+function atualizarTotalEdicaoAluguel(precoDia) {
+  const inicio = $('#edit-aluguel-inicio')?.value;
+  const fim = $('#edit-aluguel-fim')?.value;
+  const totalEl = $('#edit-aluguel-total');
+  if (!inicio || !fim || !totalEl) return;
+
+  const dias = Math.ceil((new Date(fim) - new Date(inicio)) / 86400000);
+  if (dias <= 0) {
+    totalEl.textContent = 'A data de fim deve ser depois da data de inicio.';
+    totalEl.classList.add('error');
+    return;
+  }
+
+  totalEl.classList.remove('error');
+  totalEl.innerHTML = `
+    <span>Duracao:</span> <strong>${dias} dia${dias > 1 ? 's' : ''}</strong>
+    <span>Total:</span> <strong>${formatBRL(dias * precoDia)}</strong>
+  `;
+}
+
+function salvarEdicaoAluguel(aluguelId) {
+  const inicio = $('#edit-aluguel-inicio')?.value;
+  const fim = $('#edit-aluguel-fim')?.value;
+
+  if (!inicio || !fim) {
+    showToast('Informe as datas do aluguel.', 'error');
+    return;
+  }
+
+  if (new Date(fim) <= new Date(inicio)) {
+    showToast('A data de fim deve ser apos a data de inicio.', 'error');
+    return;
+  }
+
+  const alugueis = getAlugueis();
+  const index = alugueis.findIndex(a => String(a.id) === String(aluguelId));
+  if (index < 0) {
+    showToast('Aluguel nao encontrado.', 'error');
+    return;
+  }
+
+  const eq = findEquipamentoById(alugueis[index].equipamentoId);
+  const precoDia = eq?.preco || Math.round(alugueis[index].total / Math.max(alugueis[index].dias, 1));
+  const dias = Math.ceil((new Date(fim) - new Date(inicio)) / 86400000);
+
+  alugueis[index] = {
+    ...alugueis[index],
+    inicio,
+    fim,
+    dias,
+    total: dias * precoDia,
+    atualizadoEm: new Date().toISOString()
+  };
+
+  setAlugueis(alugueis);
+  document.querySelector('.modal-overlay')?.remove();
+  showToast('Aluguel atualizado com sucesso.', 'success');
+  renderPainelData();
+}
+
+function confirmarExclusaoAluguel(aluguelId) {
+  const aluguel = getAlugueis().find(a => String(a.id) === String(aluguelId));
+  if (!aluguel) {
+    showToast('Aluguel nao encontrado.', 'error');
+    return;
+  }
+
+  openConfirmModal({
+    title: 'Excluir Aluguel',
+    message: `Deseja excluir o aluguel de ${aluguel.equipamentoNome}? Esta acao nao pode ser desfeita.`,
+    confirmText: 'Excluir',
+    danger: true,
+    onConfirm: () => excluirAluguel(aluguelId)
+  });
+}
+
+function excluirAluguel(aluguelId) {
+  const before = getAlugueis();
+  const after = before.filter(a => String(a.id) !== String(aluguelId));
+  if (after.length === before.length) {
+    showToast('Aluguel nao encontrado.', 'error');
+    return;
+  }
+
+  setAlugueis(after);
+  showToast('Aluguel excluido com sucesso.', 'success');
+  renderPainelData();
+}
+
+function openConfirmModal({ title, message, confirmText = 'Confirmar', danger = false, onConfirm }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal modal-confirm" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <div class="modal-header">
+        <div>
+          <p class="modal-title" id="confirm-title">${escapeHtml(title)}</p>
+          <p class="modal-sub">${escapeHtml(message)}</p>
+        </div>
+        <button class="modal-close" type="button" aria-label="Fechar">x</button>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost btn-full" data-modal-cancel>Cancelar</button>
+        <button type="button" class="btn ${danger ? 'btn-danger' : 'btn-primary'} btn-full" data-modal-confirm>${escapeHtml(confirmText)}</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('open'), 10);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('.modal-close')?.addEventListener('click', close);
+  overlay.querySelector('[data-modal-cancel]')?.addEventListener('click', close);
+  overlay.querySelector('[data-modal-confirm]')?.addEventListener('click', () => {
+    close();
+    onConfirm?.();
+  });
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) close();
+  });
+}
 
 function initLogin() {
   const form = $('#login-form');
@@ -949,6 +1158,8 @@ function initPainel() {
     }
   }
 
+  renderPainelData();
+
   $$('.dash-nav-item').forEach(item => {
     item.addEventListener('click', () => {
       $$('.dash-nav-item').forEach(i => i.classList.remove('active'));
@@ -963,6 +1174,83 @@ function initPainel() {
 }
 
 /* ─── HELPERS ─── */
+
+function renderPainelData() {
+  const user = getUsuarioAtual();
+  if (!user) return;
+
+  const nome = user.nome || user.nomeEmpresa || 'Usuario';
+  const inicial = nome.charAt(0).toUpperCase();
+
+  setEl('#dash-avatar', inicial);
+  setEl('#dash-avatar-perfil', inicial);
+  setEl('#dash-nome', nome);
+  setEl('#dash-nome-perfil-header', nome);
+  setEl('#dash-email', user.email);
+  setEl('#dash-email-perfil', user.email);
+  setEl('#dash-type', user.tipo === 'empresa' ? 'Empresa' : 'Cliente');
+  setEl('#dash-nome-info', nome);
+  setEl('#dash-email-info', user.email);
+  setEl('#dash-tipo-info', user.tipo === 'empresa' ? 'Empresa' : 'Cliente');
+  setEl('#dash-membro-desde', user.criadoEm ? formatDate(user.criadoEm) : '-');
+
+  const cnpjEl = $('#dash-cnpj-row');
+  if (cnpjEl) cnpjEl.style.display = user.tipo === 'empresa' ? 'flex' : 'none';
+  setEl('#dash-cnpj-info', user.cnpj || '-');
+
+  const meusAlugueis = getAlugueis()
+    .filter(a => a.userEmail === user.email)
+    .sort((a, b) => new Date(b.criadoEm || b.inicio) - new Date(a.criadoEm || a.inicio));
+
+  setEl('#dash-total-alugueis', meusAlugueis.length);
+  setEl('#dash-total-gasto', formatBRL(meusAlugueis.reduce((acc, a) => acc + a.total, 0)));
+  setEl('#dash-ativos', meusAlugueis.filter(a => a.status === 'ativo').length);
+
+  renderRentalList('#dash-alugueis-lista', meusAlugueis.slice(0, 3), false);
+  renderRentalList('#dash-alugueis-lista-full', meusAlugueis, true);
+  renderEquipamentosEmpresaPainel(user);
+}
+
+function renderRentalList(selector, alugueis, showActions) {
+  const listaEl = $(selector);
+  if (!listaEl) return;
+
+  listaEl.innerHTML = '';
+
+  if (alugueis.length === 0) {
+    listaEl.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📦</div>
+        <p class="title">Nenhum aluguel ainda</p>
+        <p class="desc"><a href="equipamentos.html" style="color:var(--orange)">Explore nossos equipamentos</a></p>
+      </div>
+    `;
+    return;
+  }
+
+  alugueis.forEach(a => {
+    const card = document.createElement('div');
+    card.className = 'rental-card';
+    card.innerHTML = `
+      <div class="rental-icon"><img src="${escapeHtml(a.equipamentoImagem)}" alt=""></div>
+      <div class="rental-info">
+        <p class="rental-name">${escapeHtml(a.equipamentoNome)}</p>
+        <p class="rental-dates">📅 ${formatDate(a.inicio)} → ${formatDate(a.fim)} (${a.dias} dia${a.dias > 1 ? 's' : ''})</p>
+      </div>
+      <div class="rental-status">
+        <p class="rental-price">${formatBRL(a.total)}</p>
+        <span class="status-badge status-available">Ativo</span>
+      </div>
+      ${showActions ? `
+        <div class="rental-actions">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="openModalEditarAluguel(${a.id})">Editar</button>
+          <button type="button" class="btn btn-danger btn-sm" onclick="confirmarExclusaoAluguel(${a.id})">Excluir</button>
+        </div>
+      ` : ''}
+    `;
+    listaEl.appendChild(card);
+  });
+}
 
 function setEl(sel, val) {
   const el = $(sel);
@@ -1016,9 +1304,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const STORAGE_KEY = 'meuPerfil';
 
+function getPerfilStorageKey(user = getUsuarioAtual()) {
+  return user?.email ? `${STORAGE_KEY}_${user.email}` : STORAGE_KEY;
+}
+
 function loadState() {
   const user = getUsuarioAtual();
-  const saved = storageGet(STORAGE_KEY);
+  const saved = storageGet(getPerfilStorageKey(user));
 
   return {
     nome:      saved?.nome      || user?.nome || user?.nomeEmpresa || '',
@@ -1031,7 +1323,23 @@ function loadState() {
 }
 
 function savePerfilState(s) {
-  storageSet(STORAGE_KEY, s);
+  const user = getUsuarioAtual();
+  storageSet(getPerfilStorageKey(user), s);
+
+  if (!user) return;
+
+  const nomeCompleto = (s.nome + (s.sobrenome ? ` ${s.sobrenome}` : '')).trim();
+  const updatedUser = {
+    ...user,
+    nome: user.tipo === 'empresa' ? user.nome : nomeCompleto,
+    nomeEmpresa: user.tipo === 'empresa' ? nomeCompleto : user.nomeEmpresa,
+    telefone: s.telefone,
+    cidade: s.cidade,
+    estado: s.estado
+  };
+
+  setUsuarioAtual(updatedUser);
+  setUsuarios(getUsuarios().map(u => u.email === user.email ? updatedUser : u));
 }
 
 function renderView(s) {
@@ -1089,7 +1397,323 @@ if (document.getElementById('btnEdit')) {
 
     savePerfilState(perfilState);
     renderView(perfilState);
+    renderPainelData();
+    updateNavUser();
     closeEdit();
-    showPerfilToast();
+    showToast('Perfil salvo com sucesso.', 'success');
   });
+}
+
+/* CRUD de equipamentos das empresas */
+
+function criarCardEquipamento(eq, delay = 0) {
+  const disponivel = eq.status === 'disponivel';
+  const canEdit = userCanEditEquipamento(eq);
+  const safeId = String(eq.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const card = document.createElement('div');
+  card.className = 'equip-card';
+  card.style.animationDelay = `${delay}ms`;
+  card.innerHTML = `
+    <div class="equip-card-img"><img src="${escapeHtml(eq.src)}" alt="${escapeHtml(eq.nome)}"></div>
+    <div class="equip-card-body">
+      <span class="equip-card-category">${escapeHtml(eq.categoria)}</span>
+      <h3 class="equip-card-name">${escapeHtml(eq.nome)}</h3>
+      <p class="equip-card-desc">${escapeHtml(eq.desc.substring(0, 90))}...</p>
+      <div class="equip-card-footer">
+        <div class="equip-card-price">
+          ${formatBRL(eq.preco)} <small>/ dia</small>
+        </div>
+        <span class="status-badge ${disponivel ? 'status-available' : 'status-unavailable'}">
+          ${disponivel ? 'Disponivel' : 'Indisponivel'}
+        </span>
+      </div>
+      <div class="equip-card-actions">
+        <a href="detalhes.html?id=${encodeURIComponent(eq.id)}" class="btn btn-outline btn-sm">Ver Detalhes</a>
+        ${canEdit ? `<button type="button" class="btn btn-ghost btn-sm" onclick="openModalEquipamento('${safeId}')">Editar</button>` : ''}
+      </div>
+    </div>
+  `;
+  return card;
+}
+
+function renderEquipamentosEmpresaPainel(user = getUsuarioAtual()) {
+  const isEmpresa = user?.tipo === 'empresa';
+
+  $$('.dash-company-only').forEach(el => {
+    el.style.display = isEmpresa ? 'flex' : 'none';
+  });
+
+  const listaEl = $('#dash-equipamentos-lista');
+  if (!listaEl) return;
+
+  if (!isEmpresa) {
+    listaEl.innerHTML = '';
+    return;
+  }
+
+  const equipamentos = getEquipamentosEmpresa()
+    .map(normalizeEquipamentoEmpresa)
+    .filter(eq => eq.ownerEmail === user.email)
+    .sort((a, b) => new Date(b.atualizadoEm || b.criadoEm || 0) - new Date(a.atualizadoEm || a.criadoEm || 0));
+
+  if (equipamentos.length === 0) {
+    listaEl.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">+</div>
+        <p class="title">Nenhum equipamento cadastrado</p>
+        <p class="desc">Cadastre o primeiro equipamento da sua empresa.</p>
+        <button type="button" class="btn btn-primary" onclick="openModalEquipamento()">Novo Equipamento</button>
+      </div>
+    `;
+    return;
+  }
+
+  listaEl.innerHTML = '';
+  equipamentos.forEach(eq => {
+    const card = document.createElement('div');
+    card.className = 'company-equipment-card';
+    card.innerHTML = `
+      <div class="company-equipment-img"><img src="${escapeHtml(eq.src)}" alt="${escapeHtml(eq.nome)}"></div>
+      <div class="company-equipment-info">
+        <p class="rental-name">${escapeHtml(eq.nome)}</p>
+        <p class="rental-dates">${escapeHtml(eq.categoria)} - ${formatBRL(eq.preco)}/dia</p>
+        <span class="status-badge ${eq.status === 'disponivel' ? 'status-available' : 'status-unavailable'}">
+          ${eq.status === 'disponivel' ? 'Disponivel' : 'Indisponivel'}
+        </span>
+      </div>
+      <div class="rental-actions">
+        <a class="btn btn-outline btn-sm" href="detalhes.html?id=${encodeURIComponent(eq.id)}">Ver</a>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="openModalEquipamento('${String(eq.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">Editar</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="confirmarExclusaoEquipamento('${String(eq.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">Excluir</button>
+      </div>
+    `;
+    listaEl.appendChild(card);
+  });
+}
+
+function openModalEquipamento(equipamentoId = null) {
+  const user = getUsuarioAtual();
+  if (!user || user.tipo !== 'empresa') {
+    showToast('Apenas contas empresa podem cadastrar ou editar equipamentos.', 'error');
+    return;
+  }
+
+  const equipamento = equipamentoId ? findEquipamentoById(equipamentoId) : null;
+  if (equipamentoId && !userCanEditEquipamento(equipamento, user)) {
+    showToast('Voce nao tem permissao para editar este equipamento.', 'error');
+    return;
+  }
+
+  const isEdit = Boolean(equipamento);
+  const specsText = isEdit
+    ? Object.entries(equipamento.specs || {}).map(([key, value]) => `${key}: ${value}`).join('\n')
+    : '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal modal-equipment" role="dialog" aria-modal="true" aria-labelledby="equipment-modal-title">
+      <div class="modal-header">
+        <div>
+          <p class="modal-title" id="equipment-modal-title">${isEdit ? 'Editar Equipamento' : 'Novo Equipamento'}</p>
+          <p class="modal-sub">${isEdit ? 'Atualize os dados sem criar um novo registro.' : 'Cadastre um equipamento para aparecer no catalogo.'}</p>
+        </div>
+        <button class="modal-close" type="button" aria-label="Fechar">x</button>
+      </div>
+
+      <form id="equipamento-form" class="equipment-form">
+        <input type="hidden" id="equip-id" value="${isEdit ? escapeHtml(equipamento.id) : ''}">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="equip-nome">Nome</label>
+            <input class="form-input" id="equip-nome" type="text" value="${isEdit ? escapeHtml(equipamento.nome) : ''}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="equip-categoria">Categoria</label>
+            <select class="form-input" id="equip-categoria">
+              ${CATEGORIAS.filter(c => c.id !== 'todos').map(c => `
+                <option value="${c.id}" ${isEdit && equipamento.categoria === c.id ? 'selected' : ''}>${c.label}</option>
+              `).join('')}
+              <option value="outros" ${isEdit && equipamento.categoria === 'outros' ? 'selected' : ''}>Outros</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="equip-preco">Preco por dia</label>
+            <input class="form-input" id="equip-preco" type="number" min="1" step="1" value="${isEdit ? equipamento.preco : ''}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="equip-status">Status</label>
+            <select class="form-input" id="equip-status">
+              <option value="disponivel" ${!isEdit || equipamento.status === 'disponivel' ? 'selected' : ''}>Disponivel</option>
+              <option value="indisponivel" ${isEdit && equipamento.status === 'indisponivel' ? 'selected' : ''}>Indisponivel</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="equip-imagem">Imagem</label>
+          <input class="form-input" id="equip-imagem" type="text" value="${isEdit ? escapeHtml(equipamento.src) : 'images/escavadeira_hidraulica.jpeg'}" placeholder="images/equipamento.png">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="equip-desc">Descricao</label>
+          <textarea class="form-input" id="equip-desc" rows="4" required>${isEdit ? escapeHtml(equipamento.desc) : ''}</textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="equip-tags">Tags</label>
+            <input class="form-input" id="equip-tags" type="text" value="${isEdit ? escapeHtml((equipamento.tags || []).join(', ')) : ''}" placeholder="obra, compactacao">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="equip-whatsapp">WhatsApp</label>
+            <input class="form-input" id="equip-whatsapp" type="text" value="${isEdit ? escapeHtml(equipamento.contato?.whatsapp || '') : ''}" placeholder="65999990000">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="equip-specs">Especificacoes</label>
+          <textarea class="form-input" id="equip-specs" rows="3" placeholder="peso: 22 ton&#10;potencia: 220 CV">${escapeHtml(specsText)}</textarea>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost btn-full" data-modal-cancel>Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-full">${isEdit ? 'Salvar Alteracoes' : 'Cadastrar'}</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.classList.add('open'), 10);
+
+  const close = () => overlay.remove();
+  overlay.querySelector('.modal-close')?.addEventListener('click', close);
+  overlay.querySelector('[data-modal-cancel]')?.addEventListener('click', close);
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) close();
+  });
+  overlay.querySelector('#equipamento-form')?.addEventListener('submit', e => {
+    e.preventDefault();
+    salvarEquipamentoEmpresa();
+  });
+}
+
+function salvarEquipamentoEmpresa() {
+  const user = getUsuarioAtual();
+  if (!user || user.tipo !== 'empresa') {
+    showToast('Apenas contas empresa podem salvar equipamentos.', 'error');
+    return;
+  }
+
+  const id = $('#equip-id')?.value.trim();
+  const nome = $('#equip-nome')?.value.trim();
+  const categoria = $('#equip-categoria')?.value;
+  const preco = Number($('#equip-preco')?.value);
+  const status = $('#equip-status')?.value;
+  const src = $('#equip-imagem')?.value.trim() || 'images/escavadeira_hidraulica.jpeg';
+  const desc = $('#equip-desc')?.value.trim();
+  const tags = ($('#equip-tags')?.value || '').split(',').map(tag => tag.trim()).filter(Boolean);
+  const specs = parseSpecs($('#equip-specs')?.value || '');
+  const whatsapp = $('#equip-whatsapp')?.value.replace(/\D/g, '');
+
+  if (!nome || !categoria || !desc || !preco || preco <= 0) {
+    showToast('Preencha nome, categoria, descricao e preco valido.', 'error');
+    return;
+  }
+
+  const equipamentos = getEquipamentosEmpresa().map(normalizeEquipamentoEmpresa);
+  const index = id ? equipamentos.findIndex(eq => String(eq.id) === String(id)) : -1;
+
+  if (id && index < 0) {
+    showToast('Equipamento nao encontrado para edicao.', 'error');
+    return;
+  }
+
+  if (id && equipamentos[index].ownerEmail !== user.email) {
+    showToast('Voce nao tem permissao para editar este equipamento.', 'error');
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const payload = {
+    ...(index >= 0 ? equipamentos[index] : {}),
+    id: id || `emp_${Date.now()}`,
+    nome,
+    categoria,
+    desc,
+    preco,
+    status,
+    src,
+    specs,
+    tags,
+    destaque: false,
+    contato: {
+      whatsapp,
+      email: user.email,
+      endereco: user.cidade && user.estado ? `${user.cidade} - ${user.estado}` : ''
+    },
+    ownerEmail: user.email,
+    ownerName: user.nomeEmpresa || user.nome || 'Empresa',
+    criadoEm: index >= 0 ? equipamentos[index].criadoEm : now,
+    atualizadoEm: now
+  };
+
+  if (index >= 0) {
+    equipamentos[index] = payload;
+  } else {
+    equipamentos.push(payload);
+  }
+
+  setEquipamentosEmpresa(equipamentos);
+  document.querySelector('.modal-overlay')?.remove();
+  renderEquipamentosEmpresaPainel(user);
+  if ($('#equip-grid')) renderEquipamentos();
+  showToast(index >= 0 ? 'Equipamento atualizado com sucesso.' : 'Equipamento cadastrado com sucesso.', 'success');
+}
+
+function parseSpecs(value) {
+  return value.split('\n').reduce((acc, line) => {
+    const [rawKey, ...rest] = line.split(':');
+    const key = rawKey?.trim();
+    const val = rest.join(':').trim();
+    if (key && val) acc[key] = val;
+    return acc;
+  }, {});
+}
+
+function confirmarExclusaoEquipamento(equipamentoId) {
+  const equipamento = findEquipamentoById(equipamentoId);
+  if (!userCanEditEquipamento(equipamento)) {
+    showToast('Voce nao tem permissao para excluir este equipamento.', 'error');
+    return;
+  }
+
+  openConfirmModal({
+    title: 'Excluir Equipamento',
+    message: `Deseja excluir ${equipamento.nome}? Esta acao nao pode ser desfeita.`,
+    confirmText: 'Excluir',
+    danger: true,
+    onConfirm: () => excluirEquipamentoEmpresa(equipamentoId)
+  });
+}
+
+function excluirEquipamentoEmpresa(equipamentoId) {
+  const user = getUsuarioAtual();
+  const equipamentos = getEquipamentosEmpresa();
+  const equipamento = equipamentos.find(eq => String(eq.id) === String(equipamentoId));
+
+  if (!equipamento || equipamento.ownerEmail !== user?.email) {
+    showToast('Equipamento nao encontrado ou sem permissao.', 'error');
+    return;
+  }
+
+  setEquipamentosEmpresa(equipamentos.filter(eq => String(eq.id) !== String(equipamentoId)));
+  renderEquipamentosEmpresaPainel(user);
+  if ($('#equip-grid')) renderEquipamentos();
+  showToast('Equipamento excluido com sucesso.', 'success');
 }

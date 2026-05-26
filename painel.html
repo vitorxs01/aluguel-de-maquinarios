@@ -68,6 +68,9 @@
             <div class="dash-nav-item" data-section="alugueis">
               📦 Meus Aluguéis
             </div>
+            <div class="dash-nav-item dash-company-only" data-section="equipamentos">
+              🏗️ Meus Equipamentos
+            </div>
             <div class="dash-nav-item" data-section="perfil">
               👤 Meu Perfil
             </div>
@@ -127,6 +130,21 @@
             </div>
             <div style="margin-top:28px;">
               <a href="equipamentos.html" class="btn btn-outline">Ver Equipamentos Disponíveis →</a>
+            </div>
+          </div>
+
+          <div class="dash-section" id="dash-equipamentos">
+            <div class="dash-section-header">
+              <div>
+                <h2 class="dash-section-title">MEUS EQUIPAMENTOS</h2>
+                <p class="dash-section-sub">Cadastre, edite e publique os equipamentos da sua empresa.</p>
+              </div>
+              <button type="button" class="btn btn-primary" onclick="openModalEquipamento()">
+                Novo Equipamento
+              </button>
+            </div>
+            <div id="dash-equipamentos-lista">
+              <p style="color:var(--gray-400); font-size:.88rem;">Carregando equipamentos...</p>
             </div>
           </div>
 
@@ -239,9 +257,6 @@
 
 <button id="btnEdit">✏️ EDITAR PERFIL</button>
 
-<!-- Toast de confirmação -->
-<div class="toast" id="toast">✓ Perfil salvo!</div>
-
             </div>
           </div>
 
@@ -262,60 +277,5 @@
   </footer>
 
   <script src="script.js"></script>
-  <script>
-    // Sincroniza a aba Aluguéis completa com os dados do painel
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => {
-        const user = storageGet('nexum_usuario_atual');
-        if (!user) return;
-        const listaFull = document.getElementById('dash-alugueis-lista-full');
-        const alugueisLS = storageGet('nexum_alugueis') || [];
-        const meus = alugueisLS.filter(a => a.userEmail === user.email);
-
-        // Sincroniza avatar no perfil
-        const nome = user.nome || user.nomeEmpresa || 'U';
-        const avatarPerfil = document.getElementById('dash-avatar-perfil');
-        if (avatarPerfil) avatarPerfil.textContent = nome.charAt(0).toUpperCase();
-        const nomePerfil = document.getElementById('dash-nome-perfil-header');
-        if (nomePerfil) nomePerfil.textContent = nome;
-        const emailPerfil = document.getElementById('dash-email-perfil');
-        if (emailPerfil) emailPerfil.textContent = user.email;
-
-        if (!listaFull) return;
-        if (meus.length === 0) {
-          listaFull.innerHTML = `
-            <div class="empty-state">
-              <div class="icon">📦</div>
-              <p class="title">Nenhum aluguel ainda</p>
-              <p class="desc"><a href="equipamentos.html" style="color:var(--orange)">Explore nossos equipamentos</a></p>
-            </div>
-          `;
-        } else {
-          listaFull.innerHTML = '';
-          meus.forEach(a => {
-            const d = new Date(a.inicio).toLocaleDateString('pt-BR');
-            const df = new Date(a.fim).toLocaleDateString('pt-BR');
-            const card = document.createElement('div');
-            card.className = 'rental-card';
-            card.innerHTML = `
-              <div><img src="${a.equipamentoImagem}"></div>
-              <div class="rental-info">
-                <p class="rental-name">${a.equipamentoNome}</p>
-                <p class="rental-dates">📅 ${d} → ${df} (${a.dias} dia${a.dias > 1 ? 's' : ''})</p>
-              </div>
-              <div class="rental-status">
-                <p class="rental-price">${a.total.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}</p>
-                <span class="status-badge status-available">Ativo</span>
-              </div>
-            `;
-            listaFull.appendChild(card);
-          });
-        }
-      }, 300);
-    });
-
-    // Helper para acesso no inline script
-    function storageGet(J) { try { return JSON.parse(localStorage.getItem(J)); } catch { return null; } }
-  </script>
 </body>
 </html>

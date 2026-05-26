@@ -2192,3 +2192,195 @@ a.contato-item:hover {
   font-family: 'Oswald', sans-serif;
   /* ou qualquer fonte que quiser */
 }
+
+.dash-section-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.dash-section-sub {
+  color: var(--gray-400);
+  font-size: 0.9rem;
+  margin-top: -12px;
+}
+
+.equip-card-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr;
+  margin-top: 14px;
+}
+
+.equip-card-actions .btn {
+  justify-content: center;
+  width: 100%;
+}
+
+.company-equipment-card {
+  align-items: center;
+  background: var(--gray-800);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 72px 1fr auto;
+  margin-bottom: 14px;
+  padding: 18px;
+}
+
+.company-equipment-img {
+  background: var(--gray-700);
+  border-radius: var(--radius-sm);
+  height: 64px;
+  overflow: hidden;
+  width: 64px;
+}
+
+.company-equipment-img img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.company-equipment-info {
+  min-width: 0;
+}
+
+.modal-equipment {
+  max-height: calc(100vh - 48px);
+  max-width: 720px;
+  overflow-y: auto;
+}
+
+.equipment-form textarea.form-input {
+  resize: vertical;
+}
+
+.btn-danger {
+  background: var(--error);
+  color: var(--white);
+  border: 1.5px solid rgba(231, 76, 60, 0.55);
+}
+
+.btn-danger:hover {
+  background: #ff5b4f;
+  transform: translateY(-2px);
+}
+
+.rental-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+#dash-alugueis-lista-full .rental-card {
+  grid-template-columns: 60px 1fr auto auto;
+}
+
+.modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.modal-total {
+  background: rgba(242, 101, 34, 0.08);
+  border: 1px solid rgba(242, 101, 34, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--gray-200);
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.88rem;
+  margin-bottom: 8px;
+  padding: 14px;
+}
+
+.modal-total span {
+  color: var(--gray-400);
+}
+
+.modal-total strong {
+  color: var(--orange);
+}
+
+.modal-total.error {
+  background: rgba(231, 76, 60, 0.1);
+  border-color: rgba(231, 76, 60, 0.3);
+  color: var(--error);
+}
+
+.toast-container {
+  bottom: 24px;
+  position: fixed;
+  right: 24px;
+  z-index: 9999;
+}
+
+.toast-container .toast {
+  background: var(--gray-800);
+  border-left: 3px solid var(--orange);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  color: var(--white);
+  font-size: 0.86rem;
+  max-width: 320px;
+  opacity: 1;
+  padding: 14px 20px;
+  position: static;
+  transform: none;
+}
+
+.toast-container .toast.success {
+  border-color: var(--success);
+}
+
+.toast-container .toast.error {
+  border-color: var(--error);
+}
+
+@media (max-width: 768px) {
+  .rental-card {
+    grid-template-columns: 52px 1fr;
+  }
+
+  #dash-alugueis-lista-full .rental-card {
+    grid-template-columns: 52px 1fr;
+  }
+
+  .rental-status,
+  .rental-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .modal-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .view-grid,
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-section-header,
+  .company-equipment-card {
+    grid-template-columns: 1fr;
+  }
+
+  .dash-section-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .company-equipment-img {
+    height: 160px;
+    width: 100%;
+  }
+}
