@@ -1573,7 +1573,7 @@ function openModalEquipamento(equipamentoId = null) {
     flex-wrap:wrap;
     margin-top:15px;
   "></div>
-</div> value="${isEdit ? escapeHtml(equipamento.src) : 'images/escavadeira_hidraulica.jpeg'}" placeholder="images/equipamento.png">
+
         </div>
 
         <div class="form-group">
