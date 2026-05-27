@@ -1615,7 +1615,13 @@ function salvarEquipamentoEmpresa() {
   const categoria = $('#equip-categoria')?.value;
   const preco = Number($('#equip-preco')?.value);
   const status = $('#equip-status')?.value;
-  const src = $('#equip-imagem')?.value.trim() || 'images/escavadeira_hidraulica.jpeg';
+  const arquivos = $('#equip-imagens')?.files;
+
+let src = 'images/escavadeira_hidraulica.jpeg';
+
+if (arquivos && arquivos.length > 0) {
+  src = URL.createObjectURL(arquivos[0]);
+}
   const desc = $('#equip-desc')?.value.trim();
   const tags = ($('#equip-tags')?.value || '').split(',').map(tag => tag.trim()).filter(Boolean);
   const specs = parseSpecs($('#equip-specs')?.value || '');
@@ -1717,3 +1723,39 @@ function excluirEquipamentoEmpresa(equipamentoId) {
   if ($('#equip-grid')) renderEquipamentos();
   showToast('Equipamento excluido com sucesso.', 'success');
 }
+document.addEventListener('change', function(e){
+
+  if(e.target.id === 'equip-imagens'){
+
+    const preview = document.getElementById('preview-imagens');
+
+    if(!preview) return;
+
+    preview.innerHTML = '';
+
+    const arquivos = e.target.files;
+
+    for(let i = 0; i < arquivos.length; i++){
+
+      const reader = new FileReader();
+
+      reader.onload = function(ev){
+
+        const img = document.createElement('img');
+
+        img.src = ev.target.result;
+
+        img.style.width = '120px';
+        img.style.height = '120px';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '10px';
+        img.style.border = '1px solid #333';
+
+        preview.appendChild(img);
+      };
+
+      reader.readAsDataURL(arquivos[i]);
+    }
+  }
+
+});
