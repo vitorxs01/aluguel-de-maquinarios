@@ -1544,20 +1544,6 @@ function openModalEquipamento(equipamentoId = null) {
           <div class="form-group">
             <div class="form-row">
 
-<div class="form-group">
-<label class="form-label" for="equip-preco-dia">
-Preco por dia
-</label>
-
-<input
-class="form-input"
-id="equip-preco-dia"
-type="number"
-min="1"
-step="1"
-placeholder="Diaria">
-</div>
-
 <div class="form-row">
 
   <div class="form-group">
@@ -1587,6 +1573,10 @@ placeholder="Diaria">
       step="1"
       placeholder="Semanal">
   </div>
+
+</div>
+
+<div class="form-row">
 
   <div class="form-group">
     <label class="form-label" for="equip-preco-mes">
