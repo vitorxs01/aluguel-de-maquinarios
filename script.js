@@ -1542,9 +1542,51 @@ function openModalEquipamento(equipamentoId = null) {
 
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label" for="equip-preco">Preco por dia</label>
-            <input class="form-input" id="equip-preco" type="number" min="1" step="1" value="${isEdit ? equipamento.preco : ''}" required>
-          </div>
+            <div class="form-row">
+
+<div class="form-group">
+<label class="form-label" for="equip-preco-dia">
+Preco por dia
+</label>
+
+<input
+class="form-input"
+id="equip-preco-dia"
+type="number"
+min="1"
+step="1"
+placeholder="Diaria">
+</div>
+
+<div class="form-group">
+<label class="form-label" for="equip-preco-semana">
+Preco semanal
+</label>
+
+<input
+class="form-input"
+id="equip-preco-semana"
+type="number"
+min="1"
+step="1"
+placeholder="Semanal">
+</div>
+
+<div class="form-group">
+<label class="form-label" for="equip-preco-mes">
+Preco mensal
+</label>
+
+<input
+class="form-input"
+id="equip-preco-mes"
+type="number"
+min="1"
+step="1"
+placeholder="Mensal">
+</div>
+
+</div>
           <div class="form-group">
             <label class="form-label" for="equip-status">Status</label>
             <select class="form-input" id="equip-status">
