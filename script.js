@@ -1544,7 +1544,7 @@ function openModalEquipamento(equipamentoId = null) {
           <div class="form-group">
             <div class="form-row">
 
-<div class="form-row">
+
 
   <div class="form-group">
     <label class="form-label" for="equip-preco-dia">
