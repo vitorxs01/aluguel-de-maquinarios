@@ -1555,8 +1555,25 @@ function openModalEquipamento(equipamentoId = null) {
         </div>
 
         <div class="form-group">
-          <label class="form-label" for="equip-imagem">Imagem</label>
-          <input class="form-input" id="equip-imagem" type="text" value="${isEdit ? escapeHtml(equipamento.src) : 'images/escavadeira_hidraulica.jpeg'}" placeholder="images/equipamento.png">
+  <label class="form-label" for="equip-images">
+    Imagens do Equipamento
+  </label>
+
+  <input
+    class="form-input"
+    id="equip-images"
+    type="file"
+    accept="image/*"
+    multiple
+  >
+
+  <div id="preview-images" style="
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:15px;
+  "></div>
+</div> value="${isEdit ? escapeHtml(equipamento.src) : 'images/escavadeira_hidraulica.jpeg'}" placeholder="images/equipamento.png">
         </div>
 
         <div class="form-group">
