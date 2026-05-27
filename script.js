@@ -1734,3 +1734,42 @@ function excluirEquipamentoEmpresa(equipamentoId) {
   if ($('#equip-grid')) renderEquipamentos();
   showToast('Equipamento excluido com sucesso.', 'success');
 }
+document.addEventListener("change", function(e){
+
+  if(e.target && e.target.id === "equip-images"){
+
+    const preview = document.getElementById("preview-images");
+
+    if(!preview) return;
+
+    preview.innerHTML = "";
+
+    const arquivos = e.target.files;
+
+    for(let i = 0; i < arquivos.length; i++){
+
+      const reader = new FileReader();
+
+      reader.onload = function(ev){
+
+        const img = document.createElement("img");
+
+        img.src = ev.target.result;
+
+        img.style.width = "120px";
+        img.style.height = "120px";
+        img.style.objectFit = "cover";
+        img.style.borderRadius = "10px";
+        img.style.border = "1px solid #333";
+
+        preview.appendChild(img);
+
+      };
+
+      reader.readAsDataURL(arquivos[i]);
+
+    }
+
+  }
+
+});
