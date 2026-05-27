@@ -1558,32 +1558,50 @@ step="1"
 placeholder="Diaria">
 </div>
 
-<div class="form-group">
-<label class="form-label" for="equip-preco-semana">
-Preco semanal
-</label>
+<div class="form-row">
 
-<input
-class="form-input"
-id="equip-preco-semana"
-type="number"
-min="1"
-step="1"
-placeholder="Semanal">
-</div>
+  <div class="form-group">
+    <label class="form-label" for="equip-preco-dia">
+      Preço por dia
+    </label>
 
-<div class="form-group">
-<label class="form-label" for="equip-preco-mes">
-Preco mensal
-</label>
+    <input
+      class="form-input"
+      id="equip-preco-dia"
+      type="number"
+      min="1"
+      step="1"
+      placeholder="Diária">
+  </div>
 
-<input
-class="form-input"
-id="equip-preco-mes"
-type="number"
-min="1"
-step="1"
-placeholder="Mensal">
+  <div class="form-group">
+    <label class="form-label" for="equip-preco-semana">
+      Preço semanal
+    </label>
+
+    <input
+      class="form-input"
+      id="equip-preco-semana"
+      type="number"
+      min="1"
+      step="1"
+      placeholder="Semanal">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="equip-preco-mes">
+      Preço mensal
+    </label>
+
+    <input
+      class="form-input"
+      id="equip-preco-mes"
+      type="number"
+      min="1"
+      step="1"
+      placeholder="Mensal">
+  </div>
+
 </div>
 
 </div>
